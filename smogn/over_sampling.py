@@ -7,6 +7,7 @@ from tqdm import tqdm
 ## load dependencies - internal
 from smogn.box_plot_stats import box_plot_stats
 from smogn.dist_metrics import euclidean_dist, heom_dist, overlap_dist
+from sklearn.neighbors import NearestNeighbors
 
 ## generate synthetic observations
 def over_sampling(
@@ -158,62 +159,62 @@ def over_sampling(
     
     ## calculate distance between observations based on data types
     ## store results over null distance matrix of n x n
-    dist_matrix = np.ndarray(shape = (n, n))
+    # dist_matrix = np.ndarray(shape = (n, n))
     
-    for i in tqdm(range(n), ascii = True, desc = "dist_matrix"):
-        for j in range(n):
+    # for i in tqdm(range(n), ascii = True, desc = "dist_matrix"):
+    #     for j in range(n):
             
-            ## utilize euclidean distance given that 
-            ## data is all numeric / continuous
-            if feat_count_nom == 0:
-                dist_matrix[i][j] = euclidean_dist(
-                    a = data_num.iloc[i],
-                    b = data_num.iloc[j],
-                    d = feat_count_num
-                )
+    #         ## utilize euclidean distance given that 
+    #         ## data is all numeric / continuous
+    #         if feat_count_nom == 0:
+    #             dist_matrix[i][j] = euclidean_dist(
+    #                 a = data_num.iloc[i],
+    #                 b = data_num.iloc[j],
+    #                 d = feat_count_num
+    #             )
             
-            ## utilize heom distance given that 
-            ## data contains both numeric / continuous 
-            ## and nominal / categorical
-            if feat_count_nom > 0 and feat_count_num > 0:
-                dist_matrix[i][j] = heom_dist(
+    #         ## utilize heom distance given that 
+    #         ## data contains both numeric / continuous 
+    #         ## and nominal / categorical
+    #         if feat_count_nom > 0 and feat_count_num > 0:
+    #             dist_matrix[i][j] = heom_dist(
                     
-                    ## numeric inputs
-                    a_num = data_num.iloc[i],
-                    b_num = data_num.iloc[j],
-                    d_num = feat_count_num,
-                    ranges_num = feat_ranges_num,
+    #                 ## numeric inputs
+    #                 a_num = data_num.iloc[i],
+    #                 b_num = data_num.iloc[j],
+    #                 d_num = feat_count_num,
+    #                 ranges_num = feat_ranges_num,
                     
-                    ## nominal inputs
-                    a_nom = data_nom.iloc[i],
-                    b_nom = data_nom.iloc[j],
-                    d_nom = feat_count_nom
-                )
+    #                 ## nominal inputs
+    #                 a_nom = data_nom.iloc[i],
+    #                 b_nom = data_nom.iloc[j],
+    #                 d_nom = feat_count_nom
+    #             )
             
-            ## utilize hamming distance given that 
-            ## data is all nominal / categorical
-            if feat_count_num == 0:
-                dist_matrix[i][j] = overlap_dist(
-                    a = data_nom.iloc[i],
-                    b = data_nom.iloc[j],
-                    d = feat_count_nom
-                )
+    #         ## utilize hamming distance given that 
+    #         ## data is all nominal / categorical
+    #         if feat_count_num == 0:
+    #             dist_matrix[i][j] = overlap_dist(
+    #                 a = data_nom.iloc[i],
+    #                 b = data_nom.iloc[j],
+    #                 d = feat_count_nom
+    #             )
     
     ## determine indicies of k nearest neighbors
     ## and convert knn index list to matrix
-    knn_index = [None] * n
+    # knn_index = [None] * n
     
-    for i in range(n):
-        knn_index[i] = np.argsort(dist_matrix[i])[1:k + 1]
+    # for i in range(n):
+    #     knn_index[i] = np.argsort(dist_matrix[i])[1:k + 1]
     
-    knn_matrix = np.array(knn_index)
+    # knn_matrix = np.array(knn_index)
     
     ## calculate max distances to determine if gaussian noise is applied
     ## (half the median of the distances per observation)
-    max_dist = [None] * n
+    # max_dist = [None] * n
     
-    for i in range(n):
-        max_dist[i] = box_plot_stats(dist_matrix[i])["stats"][2] / 2
+    # for i in range(n):
+    #     max_dist[i] = box_plot_stats(dist_matrix[i])["stats"][2] / 2
     
     ## number of new synthetic observations for each rare observation
     x_synth = int(perc - 1)
@@ -233,15 +234,27 @@ def over_sampling(
         p = None
     )
     
+    from time import perf_counter
+    start = perf_counter()
+    print("\nBuilding KD-Tree/BallTree...")
+    data_np = data_num.to_numpy()
+    neigh_nn = NearestNeighbors(algorithm="ball_tree", n_jobs=-1)
+    neigh_nn.fit(data_np)
+    end = perf_counter()
+    print(f"Completed! ... {end - start} s\n")    
+
     ## create null matrix to store new synthetic observations
     synth_matrix = np.ndarray(shape = ((x_synth * n + n_synth), d))
+    # knn_matrix = np.empty(shape=(n, k), dtype=np.int32)
+
+    knn_matrix = neigh_nn.kneighbors(data_np, k, return_distance=False) 
     
     if x_synth > 0:
         for i in tqdm(range(n), ascii = True, desc = "synth_matrix"):
             
             ## determine which cases are 'safe' to interpolate
-            safe_list = np.where(
-                dist_matrix[i, knn_matrix[i]] < max_dist[i])[0]
+            # safe_list = np.where(
+            #     dist_matrix[i, knn_matrix[i]] < max_dist[i])[0]
             
             for j in range(x_synth):
                 
@@ -256,7 +269,7 @@ def over_sampling(
                 
                 ## conduct synthetic minority over-sampling
                 ## technique for regression (smoter)
-                if neigh in safe_list:
+                if True:
                     ## set random seed
                     if seed:
                         rd.seed(a = seed)
@@ -358,8 +371,8 @@ def over_sampling(
         for i in tqdm(r_index, ascii = True, desc = "r_index"):
             
             ## determine which cases are 'safe' to interpolate
-            safe_list = np.where(
-                dist_matrix[i, knn_matrix[i]] < max_dist[i])[0]
+            # safe_list = np.where(
+            #     dist_matrix[i, knn_matrix[i]] < max_dist[i])[0]
             
             ## set random seed 
             if seed:
@@ -372,7 +385,7 @@ def over_sampling(
             
             ## conduct synthetic minority over-sampling 
             ## technique for regression (smoter)
-            if neigh in safe_list:
+            if True:
                 ##  set random seed
                 if seed:
                     rd.seed(a = seed)
