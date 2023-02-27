@@ -234,21 +234,22 @@ def smoter(
         
         ## over-sampling
         if s_perc[i] > 1:
+            pass
             
             ## generate synthetic observations in training set
             ## considered 'minority'
             ## (see 'over_sampling()' function for details)
-            synth_obs = over_sampling(
-                data = data,
-                index = list(b_index[i].index),
-                perc = s_perc[i],
-                pert = pert,
-                k = k
-            )
+            # synth_obs = over_sampling(
+            #     data = data,
+            #     index = list(b_index[i].index),
+            #     perc = s_perc[i],
+            #     pert = pert,
+            #     k = k
+            # )
             
-            ## concatenate over-sampling
-            ## results to modified training set
-            data_new = pd.concat([synth_obs, data_new])
+            # ## concatenate over-sampling
+            # ## results to modified training set
+            # data_new = pd.concat([synth_obs, data_new])
         
         ## under-sampling
         if under_samp is True:
